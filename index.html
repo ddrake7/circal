@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Synesthetic Month Donut</title>
+  <style>
+    :root{
+      --bg:#0e1116;--fg:#f7f7f7;--muted:#9aa4b2;--ring:#ffffff10;--accent:#4c8bf5;--star:#f5c24c;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:16px/1.25 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .app{display:grid;grid-template-rows:auto 1fr auto;min-height:100%}
+    header,footer{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem}
+    header{justify-content:space-between;border-bottom:1px solid #ffffff14;background:#ffffff06;backdrop-filter: blur(6px)}
+    footer{color:var(--muted);border-top:1px solid #ffffff14}
+    .controls{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+    select,button,input{background:#1a1f27;color:var(--fg);border:1px solid #2a3341;border-radius:10px;padding:.5rem .75rem}
+    button:hover{border-color:#3c4b60}
+    .canvas-wrap{position:relative;display:grid;place-items:center}
+    canvas{width:100%;height:100%;display:block}
+    .hint{position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);color:#cbd5e1;font-size:.85rem;opacity:.7}
+    .toast{position:fixed;right:1rem;bottom:1rem;background:#111827;border:1px solid #1f2937;padding:.5rem .75rem;border-radius:10px;display:none}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;background:#00000040;border:1px solid #00000060;border-bottom-width:2px;border-radius:6px;padding:.1rem .35rem}
+    a{color:var(--accent);text-decoration:none}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="controls">
+      <strong>Month Donut</strong>
+      <label>
+        <span class="sr">Year</span>
+        <input id="year" type="number" step="1" style="width:7ch" />
+      </label>
+      <label>
+        <span class="sr">Month</span>
+        <select id="month"></select>
+      </label>
+      <button id="today">Today</button>
+      <button id="share">Share</button>
+    </div>
+    <div class="controls">
+      <small>Click a slice to center week • <span class="kbd">T</span> today</small>
+    </div>
+  </header>
+
+  <div class="canvas-wrap">
+    <canvas id="donut" aria-label="Month donut visualization" role="img"></canvas>
+    <div class="hint">⭐ shows Important items only at month level</div>
+  </div>
+
+  <footer>
+    <div>Made for GitHub Pages · <a href="https://github.com/" target="_blank" rel="noreferrer">Host guide below</a></div>
+  </footer>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+// ---- Utilities ----
+const TAU = Math.PI*2;
+const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+function polar(cx,cy,r,theta){return {x:cx+r*Math.cos(theta),y:cy+r*Math.sin(theta)};}
+function fmtMonth(y,m){return new Date(y,m-1,1).toLocaleString(undefined,{month:'long',year:'numeric'});}
+
+// ---- Month math ----
+function monthInfo(year,month){ // month 1-12
+  const first = new Date(year, month-1, 1);
+  const days = new Date(year, month, 0).getDate();
+  // ISO-ish week-of-month: weeks counted from first day grouping by calendar weeks
+  // We'll use locale week starting Monday by default
+  const weekStart = 1; // 0 Sun ... 6 Sat; choose 1 = Monday
+  const weeks = new Set();
+  const weekIndex = {};
+  for(let d=1; d<=days; d++){
+    const dt = new Date(year, month-1, d);
+    const day = dt.getDay();
+    const diff = (day - weekStart + 7) % 7;
+    const startOfWeek = new Date(dt); startOfWeek.setDate(dt.getDate() - diff);
+    const key = startOfWeek.toDateString();
+    weeks.add(key);
+    weekIndex[d] = [...weeks].indexOf(key);
+  }
+  const today = (new Date()).toDateString();
+  let todayNum=null; for(let d=1; d<=days; d++){ if(new Date(year,month-1,d).toDateString()===today) { todayNum=d; break; } }
+  return {year,month,days,weeks:[...weeks].length,weekIndex,today:todayNum};
+}
+
+// ---- Important events demo data ----
+// Replace with real data fetch; here we parse from URL or generate sparse stars.
+function getImportantByDay(mi){
+  // URL hash like #stars=5:1,12:2 (day:count)
+  const map={};
+  const m = location.hash.match(/stars=([^&]+)/);
+  if(m){
+    m[1].split(',').forEach(pair=>{const [d,c]=pair.split(':').map(x=>parseInt(x,10)); if(d>=1&&d<=mi.days) map[d]=clamp(c||1,1,9);});
+    return map;
+  }
+  // default: 20% of days with 1-3 stars
+  for(let d=1; d<=mi.days; d++) if(Math.random()<0.2) map[d]=1+Math.floor(Math.random()*3);
+  return map;
+}
+
+// ---- Renderer ----
+class Donut {
+  constructor(canvas){
+    this.cv=canvas; this.ctx=canvas.getContext('2d');
+    this.state={year:new Date().getFullYear(), month:new Date().getMonth()+1};
+    this.resizeObserver=new ResizeObserver(()=>this.resize());
+    this.resizeObserver.observe(canvas.parentElement);
+    window.addEventListener('keydown',e=>{ if(e.key.toLowerCase()==='t'){ this.gotoToday(); }});
+    this.cv.addEventListener('click',e=>this.onClick(e));
+    this.syncFromURL();
+  }
+  syncFromURL(){
+    const u=new URL(location.href);
+    const y=parseInt(u.searchParams.get('y')); const m=parseInt(u.searchParams.get('m'));
+    if(!isNaN(y)) this.state.year=y; if(!isNaN(m)) this.state.month=clamp(m,1,12);
+  }
+  pushURL(){
+    const u=new URL(location.href); u.searchParams.set('y',this.state.year); u.searchParams.set('m',this.state.month);
+    history.replaceState(null,'',u);
+  }
+  gotoToday(){ const dt=new Date(); this.state.year=dt.getFullYear(); this.state.month=dt.getMonth()+1; this.pushURL(); this.draw(); toast('Jumped to Today: '+fmtMonth(this.state.year,this.state.month)); }
+  resize(){ const dpr=window.devicePixelRatio||1; const r=this.cv.getBoundingClientRect(); this.cv.width=r.width*dpr; this.cv.height=r.height*dpr; this.ctx.setTransform(dpr,0,0,dpr,0,0); this.draw(); }
+
+  draw(){
+    const {width,height}=this.cv.getBoundingClientRect();
+    const ctx=this.ctx; ctx.clearRect(0,0,width,height);
+    const cx=width/2, cy=height/2; const size=Math.min(width,height);
+    const R_outer=size*0.46; const gap=2; const weekThickness=Math.max(10, R_outer*0.13);
+
+    const mi=monthInfo(this.state.year,this.state.month);
+    const stars=getImportantByDay(mi);
+
+    // Title
+    ctx.save(); ctx.fillStyle='#ffffffee'; ctx.font='700 20px system-ui'; ctx.textAlign='center'; ctx.fillText(fmtMonth(this.state.year,this.state.month), cx, height*0.1); ctx.restore();
+
+    // Weeks rings
+    for(let w=0; w<mi.weeks; w++){
+      const rO=R_outer - w*(weekThickness+gap); const rI=rO - weekThickness;
+      ctx.beginPath(); ctx.arc(cx,cy,rO,0,TAU); ctx.arc(cx,cy,rI,TAU,0,true); ctx.closePath();
+      ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fill();
+    }
+
+    const thetaDay = TAU/mi.days; const thetaOffset = -Math.PI/2;
+    ctx.lineWidth=0.5; ctx.strokeStyle='rgba(200,210,220,0.3)';
+
+    for(let d=1; d<=mi.days; d++){
+      const t0=(d-1)*thetaDay + thetaOffset; const t1=(d)*thetaDay + thetaOffset; const tm=(t0+t1)/2;
+      const wi = mi.weekIndex[d] || 0; const rO=R_outer - wi*(weekThickness+gap); const rI=rO-weekThickness;
+      // separator
+      ctx.beginPath(); const p0=polar(cx,cy,rI,t0); const p1=polar(cx,cy,rO,t0); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke();
+      // today highlight
+      if(mi.today===d){ ctx.beginPath(); ctx.strokeStyle='#4c8bf5'; ctx.lineWidth=5; const rm=(rI+rO)/2; ctx.arc(cx,cy,rm,t0,t1); ctx.stroke(); ctx.strokeStyle='rgba(200,210,220,0.3)'; ctx.lineWidth=0.5; }
+      // sparse labels
+      if(d===1 || d%5===0){ const pt=polar(cx,cy,rO+12,tm); ctx.save(); ctx.fillStyle='#cbd5e1'; ctx.font='600 10px system-ui'; ctx.textAlign='center'; ctx.fillText(String(d), pt.x, pt.y); ctx.restore(); }
+      // stars
+      const count=stars[d]||0; if(count>0){ const baseR=(rI+rO)/2; for(let i=0;i<Math.min(count,3);i++){ const rr=baseR + (i - (count-1)/2)*6; const pt=polar(cx,cy,rr,tm); ctx.beginPath(); ctx.arc(pt.x,pt.y,3,0,TAU); ctx.fillStyle='#f5c24c'; ctx.fill(); }}
+    }
+  }
+
+  onClick(e){
+    const rect=this.cv.getBoundingClientRect(); const x=e.clientX-rect.left; const y=e.clientY-rect.top;
+    const cx=rect.width/2, cy=rect.height/2; const v={x:x-cx,y:y-cy};
+    let theta=Math.atan2(v.y,v.x); if(theta< -Math.PI/2) theta += TAU; const thetaOffset=-Math.PI/2;
+    const mi=monthInfo(this.state.year,this.state.month); const thetaDay=TAU/mi.days;
+    let d=Math.floor(Math.max(0,(theta-thetaOffset))/thetaDay)+1; d=clamp(d,1,mi.days);
+    // Week routing could animate into a week ribbon; here we display a toast.
+    const wi=mi.weekIndex[d]||0; toast(`Week ${wi+1}, Day ${d}`);
+  }
+}
+
+// ---- App bootstrap ----
+const canvas=document.getElementById('donut');
+const donut=new Donut(canvas);
+const $y=document.getElementById('year'); const $m=document.getElementById('month'); const $today=document.getElementById('today'); const $share=document.getElementById('share');
+
+// populate controls
+(function initControls(){
+  const now=new Date();
+  $y.value = donut.state.year; $y.addEventListener('change',()=>{ donut.state.year=parseInt($y.value,10)||now.getFullYear(); donut.pushURL(); donut.draw(); });
+  const months=[...Array(12).keys()].map(i=>({i:i+1,name:new Date(2000,i,1).toLocaleString(undefined,{month:'long'})}));
+  months.forEach(m=>{ const opt=document.createElement('option'); opt.value=m.i; opt.textContent=m.name; $m.appendChild(opt); });
+  $m.value=donut.state.month; $m.addEventListener('change',()=>{ donut.state.month=parseInt($m.value,10)||1; donut.pushURL(); donut.draw(); });
+  $today.addEventListener('click',()=>donut.gotoToday());
+  $share.addEventListener('click',()=>{ navigator.clipboard.writeText(location.href).then(()=>toast('URL copied')); });
+})();
+
+window.addEventListener('resize',()=>donut.resize());
+setTimeout(()=>donut.resize(), 0);
+
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',1600); }
+</script>
+</body>
+</html>
