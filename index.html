@@ -87,13 +87,30 @@ function labelTexture(text){
 function wedge(i,total,outerR,innerR,height,gapDeg,color){
   const sector=(Math.PI*2)/total, gap=THREE.MathUtils.degToRad(gapDeg);
   const start=i*sector+gap/2, end=(i+1)*sector-gap/2;
-  const sh=new THREE.Shape(); sh.absarc(0,0,outerR,start,end,false);
-  const hole=new THREE.Path(); hole.absarc(0,0,innerR,end,start,true); sh.holes.push(hole);
+
+  // 2D annulus sector
+  const sh=new THREE.Shape();
+  sh.absarc(0,0,outerR,start,end,false);
+  const hole=new THREE.Path();
+  hole.absarc(0,0,innerR,end,start,true);
+  sh.holes.push(hole);
+
+  // Extrude to 3D
   const geo=new THREE.ExtrudeGeometry(sh,{depth:height,bevelEnabled:false,curveSegments:96});
-  geo.rotateX(Math.PI/2); geo.translate(0,0,-height/2);
-  const mat=new THREE.MeshStandardMaterial({color,new THREE:0, metalness:0.08, roughness:0.45});
-  const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color, metalness:0.08, roughness:0.45}));
-  m.userData.center=(start+end)/2; m.userData.idx=i; return m;
+  geo.rotateX(Math.PI/2);
+  geo.translate(0,0,-height/2);
+
+  // Correct material definition
+  const mat=new THREE.MeshStandardMaterial({
+    color: new THREE.Color(color),
+    metalness:0.08,
+    roughness:0.45
+  });
+
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.userData.center=(start+end)/2;
+  mesh.userData.idx=i;
+  return mesh;
 }
 
 // Add labels on radial faces
