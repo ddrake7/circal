@@ -1,197 +1,378 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Synesthetic Month Donut</title>
-  <style>
-    :root{
-      --bg:#0e1116;--fg:#f7f7f7;--muted:#9aa4b2;--ring:#ffffff10;--accent:#4c8bf5;--star:#f5c24c;
-    }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:16px/1.25 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    .app{display:grid;grid-template-rows:auto 1fr auto;min-height:100%}
-    header,footer{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem}
-    header{justify-content:space-between;border-bottom:1px solid #ffffff14;background:#ffffff06;backdrop-filter: blur(6px)}
-    footer{color:var(--muted);border-top:1px solid #ffffff14}
-    .controls{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
-    select,button,input{background:#1a1f27;color:var(--fg);border:1px solid #2a3341;border-radius:10px;padding:.5rem .75rem}
-    button:hover{border-color:#3c4b60}
-    .canvas-wrap{position:relative;display:grid;place-items:center}
-    canvas{width:100%;height:100%;display:block}
-    .hint{position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);color:#cbd5e1;font-size:.85rem;opacity:.7}
-    .toast{position:fixed;right:1rem;bottom:1rem;background:#111827;border:1px solid #1f2937;padding:.5rem .75rem;border-radius:10px;display:none}
-    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;background:#00000040;border:1px solid #00000060;border-bottom-width:2px;border-radius:6px;padding:.1rem .35rem}
-    a{color:var(--accent);text-decoration:none}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>3D Year Ring – Synesthetic Calendar</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#111827; --border:#1f2937; --fg:#e5e7eb;
+    --accent:#4c8bf5; --ringline:#00000022;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);
+            font:15px/1.35 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+  #app{height:100%;display:grid;grid-template-columns:280px 1fr}
+  /* Control panel */
+  aside{padding:14px;border-right:1px solid var(--border);background:var(--panel)}
+  aside h1{margin:0 0 10px;font:600 16px/1.2 ui-sans-serif}
+  .row{display:grid;grid-template-columns:1fr 4.5rem;gap:.5rem;margin:10px 0}
+  .row input[type=range]{width:100%}
+  .hint{opacity:.7;font-size:.85rem;margin-top:.5rem}
+  .btn{display:inline-flex;align-items:center;gap:.45rem;
+       border:1px solid var(--border);background:#0b1220;padding:.5rem .7rem;border-radius:10px;color:var(--fg)}
+  .btn:hover{border-color:#2c3a52}
+  fieldset{border:1px solid var(--border);border-radius:10px;padding:10px;margin:12px 0}
+  legend{opacity:.8}
+  .small{font-size:.9rem; opacity:.8}
+  /* Canvas area */
+  #stage{position:relative}
+  #canvas{display:block;width:100%;height:100%}
+  .overlay{position:absolute;top:10px;left:10px;background:#00000060;padding:6px 10px;border-radius:10px;backdrop-filter: blur(4px)}
+  a{color:var(--accent);text-decoration:none}
+</style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="controls">
-      <strong>Month Donut</strong>
-      <label>
-        <span class="sr">Year</span>
-        <input id="year" type="number" step="1" style="width:7ch" />
-      </label>
-      <label>
-        <span class="sr">Month</span>
-        <select id="month"></select>
-      </label>
-      <button id="today">Today</button>
-      <button id="share">Share</button>
-    </div>
-    <div class="controls">
-      <small>Click a slice to center week • <span class="kbd">T</span> today</small>
-    </div>
-  </header>
+<div id="app">
+  <aside>
+    <h1>3D Year Ring</h1>
+    <div class="small">Pan/rotate with mouse/touch · Scroll/Pinch to zoom</div>
 
-  <div class="canvas-wrap">
-    <canvas id="donut" aria-label="Month donut visualization" role="img"></canvas>
-    <div class="hint">⭐ shows Important items only at month level</div>
+    <fieldset>
+      <legend>Dimensions</legend>
+      <div class="row">
+        <label>Outer Radius <span id="outerRadiusVal" class="small"></span></label>
+        <input id="outerRadius" type="range" min="2" max="9" step="0.1" value="6.5">
+      </div>
+      <div class="row">
+        <label>Inner Radius <span id="innerRadiusVal" class="small"></span></label>
+        <input id="innerRadius" type="range" min="1" max="8" step="0.1" value="4.4">
+      </div>
+      <div class="row">
+        <label>Height (thickness) <span id="heightVal" class="small"></span></label>
+        <input id="height" type="range" min="0.3" max="2.0" step="0.05" value="0.9">
+      </div>
+      <div class="row">
+        <label>Gap (degrees) <span id="gapVal" class="small"></span></label>
+        <input id="gap" type="range" min="0" max="4" step="0.1" value="0.8">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Labels</legend>
+      <div style="display:flex; gap:.6rem; align-items:center; margin:.35rem 0;">
+        <input id="showOuter" type="checkbox" checked><label for="showOuter">Show Outside</label>
+      </div>
+      <div style="display:flex; gap:.6rem; align-items:center; margin:.35rem 0;">
+        <input id="showInner" type="checkbox" checked><label for="showInner">Show Inside</label>
+      </div>
+      <div class="row">
+        <label>Label Size <span id="labelVal" class="small"></span></label>
+        <input id="labelSize" type="range" min="0.1" max="0.6" step="0.02" value="0.34">
+      </div>
+    </fieldset>
+
+    <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+      <button id="resetView" class="btn">Reset View</button>
+      <button id="autorotate" class="btn">Auto-rotate</button>
+    </div>
+
+    <p class="hint">Tip: Use the sliders to match the “short, wide tube” look.  
+      Try Outer ≈ 6.5, Inner ≈ 4.4, Height ≈ 0.9, Gap ≈ 0.8°.</p>
+
+    <p class="small">Ready to host? Save as <code>index.html</code> in a GitHub repo → Settings → Pages → Deploy from branch.</p>
+  </aside>
+
+  <div id="stage">
+    <canvas id="canvas" aria-label="3D torus-like calendar ring"></canvas>
+    <div class="overlay small">Months: click a segment to highlight</div>
   </div>
-
-  <footer>
-    <div>Made for GitHub Pages · <a href="https://github.com/" target="_blank" rel="noreferrer">Host guide below</a></div>
-  </footer>
 </div>
 
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<!-- Three.js modules from a CDN -->
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
+import { OrbitControls } from 'https://unpkg.com/three@0.159.0/examples/jsm/controls/OrbitControls.js';
 
-<script>
-// ---- Utilities ----
-const TAU = Math.PI*2;
-const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
-function polar(cx,cy,r,theta){return {x:cx+r*Math.cos(theta),y:cy+r*Math.sin(theta)};}
-function fmtMonth(y,m){return new Date(y,m-1,1).toLocaleString(undefined,{month:'long',year:'numeric'});}
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-// ---- Month math ----
-function monthInfo(year,month){ // month 1-12
-  const first = new Date(year, month-1, 1);
-  const days = new Date(year, month, 0).getDate();
-  // ISO-ish week-of-month: weeks counted from first day grouping by calendar weeks
-  // We'll use locale week starting Monday by default
-  const weekStart = 1; // 0 Sun ... 6 Sat; choose 1 = Monday
-  const weeks = new Set();
-  const weekIndex = {};
-  for(let d=1; d<=days; d++){
-    const dt = new Date(year, month-1, d);
-    const day = dt.getDay();
-    const diff = (day - weekStart + 7) % 7;
-    const startOfWeek = new Date(dt); startOfWeek.setDate(dt.getDate() - diff);
-    const key = startOfWeek.toDateString();
-    weeks.add(key);
-    weekIndex[d] = [...weeks].indexOf(key);
-  }
-  const today = (new Date()).toDateString();
-  let todayNum=null; for(let d=1; d<=days; d++){ if(new Date(year,month-1,d).toDateString()===today) { todayNum=d; break; } }
-  return {year,month,days,weeks:[...weeks].length,weekIndex,today:todayNum};
+// Palette roughly inspired by your mock
+const colors = [
+  '#57A7B4','#6BB8A0','#86C37A','#A0C15A','#E0B444','#F0A63E',
+  '#E9853F','#DB6A4B','#CF5C59','#E18A42','#F0B149','#7CB4A9'
+];
+
+// ---------- Renderer / Scene / Camera ----------
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.setClearColor(0x0e1116, 1);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0e1116, 30, 60);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+camera.position.set(0, 7.5, 13);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 6;
+controls.maxDistance = 60;
+controls.rotateSpeed = 0.75;
+controls.zoomSpeed   = 0.8;
+controls.panSpeed    = 0.6;
+
+// Lights
+{
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 0.6);
+  scene.add(hemi);
+
+  const key = new THREE.DirectionalLight(0xffffff, 0.8);
+  key.position.set(6, 8, 4);
+  key.castShadow = false;
+  scene.add(key);
+
+  const rim = new THREE.DirectionalLight(0x88aaff, 0.25);
+  rim.position.set(-6, 4, -6);
+  scene.add(rim);
 }
 
-// ---- Important events demo data ----
-// Replace with real data fetch; here we parse from URL or generate sparse stars.
-function getImportantByDay(mi){
-  // URL hash like #stars=5:1,12:2 (day:count)
-  const map={};
-  const m = location.hash.match(/stars=([^&]+)/);
-  if(m){
-    m[1].split(',').forEach(pair=>{const [d,c]=pair.split(':').map(x=>parseInt(x,10)); if(d>=1&&d<=mi.days) map[d]=clamp(c||1,1,9);});
-    return map;
-  }
-  // default: 20% of days with 1-3 stars
-  for(let d=1; d<=mi.days; d++) if(Math.random()<0.2) map[d]=1+Math.floor(Math.random()*3);
-  return map;
+// Ground (soft)
+{
+  const g = new THREE.PlaneGeometry(200, 200);
+  const m = new THREE.MeshBasicMaterial({color:0x0b0f14, transparent:true, opacity:0.6});
+  const ground = new THREE.Mesh(g, m);
+  ground.rotation.x = -Math.PI/2;
+  ground.position.y = -1.4;
+  scene.add(ground);
 }
 
-// ---- Renderer ----
-class Donut {
-  constructor(canvas){
-    this.cv=canvas; this.ctx=canvas.getContext('2d');
-    this.state={year:new Date().getFullYear(), month:new Date().getMonth()+1};
-    this.resizeObserver=new ResizeObserver(()=>this.resize());
-    this.resizeObserver.observe(canvas.parentElement);
-    window.addEventListener('keydown',e=>{ if(e.key.toLowerCase()==='t'){ this.gotoToday(); }});
-    this.cv.addEventListener('click',e=>this.onClick(e));
-    this.syncFromURL();
+// ---------- Parameter state ----------
+const params = {
+  outerR: 6.5,
+  innerR: 4.4,
+  height: 0.9,
+  gapDeg: 0.8,
+  labelSize: 0.34,
+  showOuter: true,
+  showInner: true,
+  auto: false,
+};
+
+const ringGroup = new THREE.Group();
+scene.add(ringGroup);
+
+const labelGroup = new THREE.Group();
+scene.add(labelGroup);
+
+// Canvas-text label helper (renders to a texture)
+function makeLabelTexture(text, color='#111', bg='transparent') {
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d');
+  const pad = 16;
+  const fontPx = 128;
+  ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
+  const w = Math.ceil(ctx.measureText(text).width) + pad*2;
+  const h = fontPx + pad*2;
+  c.width = w; c.height = h;
+  // redraw after resize:
+  ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
+  if (bg !== 'transparent') {
+    ctx.fillStyle = bg; ctx.fillRect(0,0,w,h);
   }
-  syncFromURL(){
-    const u=new URL(location.href);
-    const y=parseInt(u.searchParams.get('y')); const m=parseInt(u.searchParams.get('m'));
-    if(!isNaN(y)) this.state.year=y; if(!isNaN(m)) this.state.month=clamp(m,1,12);
-  }
-  pushURL(){
-    const u=new URL(location.href); u.searchParams.set('y',this.state.year); u.searchParams.set('m',this.state.month);
-    history.replaceState(null,'',u);
-  }
-  gotoToday(){ const dt=new Date(); this.state.year=dt.getFullYear(); this.state.month=dt.getMonth()+1; this.pushURL(); this.draw(); toast('Jumped to Today: '+fmtMonth(this.state.year,this.state.month)); }
-  resize(){ const dpr=window.devicePixelRatio||1; const r=this.cv.getBoundingClientRect(); this.cv.width=r.width*dpr; this.cv.height=r.height*dpr; this.ctx.setTransform(dpr,0,0,dpr,0,0); this.draw(); }
+  ctx.fillStyle = color;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, w/2, h/2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  return {texture: tex, w, h};
+}
 
-  draw(){
-    const {width,height}=this.cv.getBoundingClientRect();
-    const ctx=this.ctx; ctx.clearRect(0,0,width,height);
-    const cx=width/2, cy=height/2; const size=Math.min(width,height);
-    const R_outer=size*0.46; const gap=2; const weekThickness=Math.max(10, R_outer*0.13);
+// Build one ring wedge (an extruded annulus sector)
+function makeWedge(i, total, outerR, innerR, height, gapDeg, color) {
+  const fullAngle = Math.PI * 2;
+  const sector = fullAngle / total;
 
-    const mi=monthInfo(this.state.year,this.state.month);
-    const stars=getImportantByDay(mi);
+  const gap = THREE.MathUtils.degToRad(gapDeg);
+  const start = i * sector + gap/2;
+  const end   = (i+1) * sector - gap/2;
 
-    // Title
-    ctx.save(); ctx.fillStyle='#ffffffee'; ctx.font='700 20px system-ui'; ctx.textAlign='center'; ctx.fillText(fmtMonth(this.state.year,this.state.month), cx, height*0.1); ctx.restore();
+  // 2D shape for the sector
+  const shape = new THREE.Shape();
+  shape.absarc(0, 0, outerR, start, end, false);
+  // hole (inner arc - reverse)
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, innerR, end, start, true);
+  shape.holes.push(hole);
 
-    // Weeks rings
-    for(let w=0; w<mi.weeks; w++){
-      const rO=R_outer - w*(weekThickness+gap); const rI=rO - weekThickness;
-      ctx.beginPath(); ctx.arc(cx,cy,rO,0,TAU); ctx.arc(cx,cy,rI,TAU,0,true); ctx.closePath();
-      ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fill();
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: height, bevelEnabled: false, curveSegments: 96, steps: 1
+  });
+  // Center extrusion around y (we'll rotate later)
+  geo.rotateX(Math.PI/2);
+  geo.translate(0, 0, -height/2);
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(color),
+    metalness: 0.08,
+    roughness: 0.45,
+    envMapIntensity: 0.4
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.userData.centerAngle = (start + end) / 2;
+  mesh.userData.index = i;
+  return mesh;
+}
+
+// Place label planes on inner/outer walls
+function addLabelsForSegment(i, total, outerR, innerR, height, midAngle, color) {
+  const labels = [];
+
+  const cfg = [
+    { kind:'outer', radius: (outerR + innerR)/2 + (outerR - innerR)/2 + 0.01, faceOut: 1, show: params.showOuter },
+    { kind:'inner', radius: (outerR + innerR)/2 - (outerR - innerR)/2 - 0.01, faceOut: -1, show: params.showInner },
+  ];
+
+  cfg.forEach(({kind, radius, faceOut, show})=>{
+    if (!show) return;
+    const {texture, w, h} = makeLabelTexture(months[i], '#0d1117');
+    const aspect = w / h;
+    const size = params.labelSize;                 // world units
+    const plane = new THREE.PlaneGeometry(size*aspect, size);
+    const mat = new THREE.MeshBasicMaterial({map:texture, transparent:true});
+    const mesh = new THREE.Mesh(plane, mat);
+
+    // height centered on ring; lift slightly above middle
+    mesh.position.set(
+      Math.cos(midAngle) * radius,
+      0.0,
+      Math.sin(midAngle) * radius
+    );
+
+    // rotate so it faces radially outward (or inward)
+    mesh.rotation.y = -midAngle + (faceOut>0 ? Math.PI/2 : -Math.PI/2);
+    labels.push(mesh);
+  });
+
+  return labels;
+}
+
+// Build or rebuild the whole ring
+function rebuild() {
+  // keep inner radius smaller than outer
+  params.innerR = Math.min(params.innerR, params.outerR - 0.4);
+
+  // UI readout
+  document.getElementById('outerRadiusVal').textContent = params.outerR.toFixed(1);
+  document.getElementById('innerRadiusVal').textContent = params.innerR.toFixed(1);
+  document.getElementById('heightVal').textContent      = params.height.toFixed(2);
+  document.getElementById('gapVal').textContent         = params.gapDeg.toFixed(1) + '°';
+  document.getElementById('labelVal').textContent       = params.labelSize.toFixed(2);
+
+  // dispose old
+  for (const g of [ringGroup, labelGroup]) {
+    while (g.children.length) {
+      const m = g.children.pop();
+      if (m.geometry) m.geometry.dispose();
+      if (m.material) {
+        const mats = Array.isArray(m.material) ? m.material : [m.material];
+        mats.forEach(mt => {
+          if (mt.map) mt.map.dispose();
+          mt.dispose();
+        });
+      }
     }
-
-    const thetaDay = TAU/mi.days; const thetaOffset = -Math.PI/2;
-    ctx.lineWidth=0.5; ctx.strokeStyle='rgba(200,210,220,0.3)';
-
-    for(let d=1; d<=mi.days; d++){
-      const t0=(d-1)*thetaDay + thetaOffset; const t1=(d)*thetaDay + thetaOffset; const tm=(t0+t1)/2;
-      const wi = mi.weekIndex[d] || 0; const rO=R_outer - wi*(weekThickness+gap); const rI=rO-weekThickness;
-      // separator
-      ctx.beginPath(); const p0=polar(cx,cy,rI,t0); const p1=polar(cx,cy,rO,t0); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke();
-      // today highlight
-      if(mi.today===d){ ctx.beginPath(); ctx.strokeStyle='#4c8bf5'; ctx.lineWidth=5; const rm=(rI+rO)/2; ctx.arc(cx,cy,rm,t0,t1); ctx.stroke(); ctx.strokeStyle='rgba(200,210,220,0.3)'; ctx.lineWidth=0.5; }
-      // sparse labels
-      if(d===1 || d%5===0){ const pt=polar(cx,cy,rO+12,tm); ctx.save(); ctx.fillStyle='#cbd5e1'; ctx.font='600 10px system-ui'; ctx.textAlign='center'; ctx.fillText(String(d), pt.x, pt.y); ctx.restore(); }
-      // stars
-      const count=stars[d]||0; if(count>0){ const baseR=(rI+rO)/2; for(let i=0;i<Math.min(count,3);i++){ const rr=baseR + (i - (count-1)/2)*6; const pt=polar(cx,cy,rr,tm); ctx.beginPath(); ctx.arc(pt.x,pt.y,3,0,TAU); ctx.fillStyle='#f5c24c'; ctx.fill(); }}
-    }
   }
 
-  onClick(e){
-    const rect=this.cv.getBoundingClientRect(); const x=e.clientX-rect.left; const y=e.clientY-rect.top;
-    const cx=rect.width/2, cy=rect.height/2; const v={x:x-cx,y:y-cy};
-    let theta=Math.atan2(v.y,v.x); if(theta< -Math.PI/2) theta += TAU; const thetaOffset=-Math.PI/2;
-    const mi=monthInfo(this.state.year,this.state.month); const thetaDay=TAU/mi.days;
-    let d=Math.floor(Math.max(0,(theta-thetaOffset))/thetaDay)+1; d=clamp(d,1,mi.days);
-    // Week routing could animate into a week ribbon; here we display a toast.
-    const wi=mi.weekIndex[d]||0; toast(`Week ${wi+1}, Day ${d}`);
+  const total = 12;
+  for (let i=0;i<total;i++){
+    const mesh = makeWedge(i, total, params.outerR, params.innerR, params.height, params.gapDeg, colors[i%colors.length]);
+    ringGroup.add(mesh);
+
+    const midAngle = mesh.userData.centerAngle;
+    addLabelsForSegment(i, total, params.outerR, params.innerR, params.height, midAngle, colors[i]).forEach(n=>labelGroup.add(n));
   }
 }
+rebuild();
 
-// ---- App bootstrap ----
-const canvas=document.getElementById('donut');
-const donut=new Donut(canvas);
-const $y=document.getElementById('year'); const $m=document.getElementById('month'); const $today=document.getElementById('today'); const $share=document.getElementById('share');
+// ---------- Interaction: pick segment ----------
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let highlight;
+function setHighlight(mesh) {
+  if (highlight === mesh) return;
+  if (highlight) highlight.material.emissive = new THREE.Color(0x000000);
+  highlight = mesh;
+  if (highlight && highlight.material && highlight.material.emissive !== undefined) {
+    highlight.material.emissive = new THREE.Color(0x222222);
+  }
+}
+canvas.addEventListener('mousemove', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left)/rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top)/rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(ringGroup.children, false);
+  setHighlight(hits[0]?.object || null);
+});
 
-// populate controls
-(function initControls(){
-  const now=new Date();
-  $y.value = donut.state.year; $y.addEventListener('change',()=>{ donut.state.year=parseInt($y.value,10)||now.getFullYear(); donut.pushURL(); donut.draw(); });
-  const months=[...Array(12).keys()].map(i=>({i:i+1,name:new Date(2000,i,1).toLocaleString(undefined,{month:'long'})}));
-  months.forEach(m=>{ const opt=document.createElement('option'); opt.value=m.i; opt.textContent=m.name; $m.appendChild(opt); });
-  $m.value=donut.state.month; $m.addEventListener('change',()=>{ donut.state.month=parseInt($m.value,10)||1; donut.pushURL(); donut.draw(); });
-  $today.addEventListener('click',()=>donut.gotoToday());
-  $share.addEventListener('click',()=>{ navigator.clipboard.writeText(location.href).then(()=>toast('URL copied')); });
+canvas.addEventListener('click', ()=>{
+  if (highlight) {
+    // Snap camera a bit toward the clicked month
+    const a = highlight.userData.centerAngle;
+    const r = (params.outerR + params.innerR)/2 + 6;
+    const target = new THREE.Vector3(Math.cos(a)*r, camera.position.y, Math.sin(a)*r);
+    camera.position.lerp(target, 0.35);
+    controls.update();
+  }
+});
+
+// ---------- Resize / Render loop ----------
+function onResize(){
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (canvas.width !== w || canvas.height !== h){
+    renderer.setSize(w, h, false);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+  }
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+(function loop(){
+  requestAnimationFrame(loop);
+  if (params.auto) ringGroup.rotation.y += 0.0022;
+  controls.update();
+  renderer.render(scene, camera);
 })();
 
-window.addEventListener('resize',()=>donut.resize());
-setTimeout(()=>donut.resize(), 0);
+// ---------- UI wiring ----------
+const $ = id => document.getElementById(id);
+$('outerRadius').addEventListener('input', e=>{ params.outerR = +e.target.value; rebuild(); });
+$('innerRadius').addEventListener('input', e=>{ params.innerR = +e.target.value; rebuild(); });
+$('height').addEventListener('input',      e=>{ params.height = +e.target.value; rebuild(); });
+$('gap').addEventListener('input',         e=>{ params.gapDeg = +e.target.value; rebuild(); });
+$('labelSize').addEventListener('input',   e=>{ params.labelSize = +e.target.value; rebuild(); });
+$('showOuter').addEventListener('change',  e=>{ params.showOuter = e.target.checked; rebuild(); });
+$('showInner').addEventListener('change',  e=>{ params.showInner = e.target.checked; rebuild(); });
 
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',1600); }
+$('resetView').addEventListener('click', ()=>{
+  controls.reset();
+  camera.position.set(0, 7.5, 13);
+});
+$('autorotate').addEventListener('click', ()=>{
+  params.auto = !params.auto;
+  $('autorotate').textContent = params.auto ? 'Stop auto-rotate' : 'Auto-rotate';
+});
+
+// Initial values into labels
+['outerRadius','innerRadius','height','gap','labelSize'].forEach(id=>{
+  document.getElementById(id).dispatchEvent(new Event('input'));
+});
 </script>
 </body>
 </html>
