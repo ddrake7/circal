@@ -3,111 +3,156 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>3D Year Ring</title>
+<title>3D Year Ring – UMD build (no modules)</title>
 <style>
   :root{--bg:#0e1116;--panel:#111827;--border:#1f2937;--fg:#e5e7eb}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:15px system-ui}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
   .wrap{display:flex;min-height:100vh;width:100vw;overflow:hidden}
   aside{width:260px;background:var(--panel);border-right:1px solid var(--border);padding:14px}
   h1{font-size:16px;margin:0 0 10px}
+  .row{margin:.6rem 0;display:grid;grid-template-columns:1fr 5.5rem;gap:.5rem}
   #stage{flex:1;position:relative}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .btn{border:1px solid var(--border);background:#0b1220;color:var(--fg);padding:.45rem .7rem;border-radius:10px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <aside>
     <h1>3D Year Ring</h1>
-    <div><label>Outer R <input id="outerR" type="range" min="2" max="9" step="0.1" value="6.5"></label></div>
-    <div><label>Inner R <input id="innerR" type="range" min="1" max="8" step="0.1" value="4.4"></label></div>
-    <div><label>Height <input id="height" type="range" min="0.3" max="2" step="0.05" value="0.9"></label></div>
-    <div><label>Gap (deg) <input id="gap" type="range" min="0" max="4" step="0.1" value="0.8"></label></div>
-    <div><label>Label Size <input id="labelSize" type="range" min="0.12" max="0.7" step="0.02" value="0.34"></label></div>
+    <div class="row"><label>Outer R</label><input id="outerR" type="range" min="2" max="9" step="0.1" value="6.5"></div>
+    <div class="row"><label>Inner R</label><input id="innerR" type="range" min="1" max="8" step="0.1" value="4.4"></div>
+    <div class="row"><label>Height</label><input id="height" type="range" min="0.3" max="2" step="0.05" value="0.9"></div>
+    <div class="row"><label>Gap (deg)</label><input id="gap" type="range" min="0" max="4" step="0.1" value="0.8"></div>
+    <div class="row"><label>Label Size</label><input id="labelSize" type="range" min="0.12" max="0.7" step="0.02" value="0.34"></div>
     <div><input id="outerLbl" type="checkbox" checked> Outside labels</div>
     <div><input id="innerLbl" type="checkbox" checked> Inside labels</div>
-    <button id="reset">Reset View</button>
-    <button id="spin">Auto-rotate</button>
+    <div style="margin-top:.6rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button id="reset" class="btn">Reset View</button>
+      <button id="spin" class="btn">Auto-rotate</button>
+    </div>
   </aside>
   <div id="stage"><canvas id="c"></canvas></div>
 </div>
 
-<script type="module">
-import * as THREE from "https://unpkg.com/three@0.159.0/build/three.module.js";
-import { OrbitControls } from "https://unpkg.com/three@0.159.0/examples/jsm/controls/OrbitControls.js";
+<!-- UMD (non-module) builds: attach globals to window.THREE -->
+<script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.159.0/examples/js/controls/OrbitControls.js"></script>
 
-const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const colors=['#57A7B4','#6BB8A0','#86C37A','#A0C15A','#E0B444','#F0A63E','#E9853F','#DB6A4B','#CF5C59','#E18A42','#F0B149','#7CB4A9'];
+<script>
+(function(){
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const colors=['#57A7B4','#6BB8A0','#86C37A','#A0C15A','#E0B444','#F0A63E','#E9853F','#DB6A4B','#CF5C59','#E18A42','#F0B149','#7CB4A9'];
 
-const canvas=document.getElementById('c');
-const stage=document.getElementById('stage');
+  const canvas=document.getElementById('c');
+  const stage=document.getElementById('stage');
 
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
-renderer.setClearColor(0x0e1116,1);
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+  renderer.setClearColor(0x0e1116,1);
 
-const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(45,1,0.1,200);
-camera.position.set(0,7.5,13);
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(45,1,0.1,200);
+  camera.position.set(0,7.5,13);
 
-const controls=new OrbitControls(camera,renderer.domElement);
-controls.enableDamping=true;
+  const controls=new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping=true; controls.dampingFactor=0.06;
 
-scene.add(new THREE.HemisphereLight(0xffffff,0x223344,0.7));
-const dl=new THREE.DirectionalLight(0xffffff,0.8);
-dl.position.set(6,8,4);
-scene.add(dl);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x223344,0.7));
+  const dl=new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(6,8,4); scene.add(dl);
 
-const P={outerR:6.5,innerR:4.4,height:0.9,gapDeg:0.8,labelSize:0.34,outerLbl:true,innerLbl:true,auto:false};
-const ringGroup=new THREE.Group();
-const labelGroup=new THREE.Group();
-scene.add(ringGroup,labelGroup);
+  const P={outerR:6.5,innerR:4.4,height:0.9,gapDeg:0.8,labelSize:0.34,outerLbl:true,innerLbl:true,auto:false};
+  const ringGroup=new THREE.Group(), labelGroup=new THREE.Group();
+  scene.add(ringGroup,labelGroup);
 
-function labelTexture(text){
-  const c=document.createElement('canvas'),ctx=c.getContext('2d');
-  const font=128,pad=16; ctx.font=`700 ${font}px system-ui`;
-  const w=(ctx.measureText(text).width|0)+pad*2,h=font+pad*2; c.width=w;c.height=h;
-  ctx.font=`700 ${font}px system-ui`; ctx.fillStyle='#0d1117'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(text,w/2,h/2);
-  return new THREE.CanvasTexture(c);
-}
+  function labelTexture(text){
+    const c=document.createElement('canvas'), ctx=c.getContext('2d');
+    const font=128, pad=16; ctx.font=`700 ${font}px system-ui,-apple-system,Segoe UI,Roboto`;
+    const w=(ctx.measureText(text).width|0)+pad*2, h=font+pad*2; c.width=w; c.height=h;
+    ctx.font=`700 ${font}px system-ui,-apple-system,Segoe UI,Roboto`;
+    ctx.fillStyle='#0d1117'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(text,w/2,h/2);
+    const tex=new THREE.CanvasTexture(c);
+    tex.minFilter=THREE.LinearMipmapLinearFilter; tex.generateMipmaps=true;
+    return tex;
+  }
 
-function wedge(i,total,outerR,innerR,height,gapDeg,color){
-  const sector=(Math.PI*2)/total,gap=THREE.MathUtils.degToRad(gapDeg);
-  const start=i*sector+gap/2,end=(i+1)*sector-gap/2;
-  const sh=new THREE.Shape(); sh.absarc(0,0,outerR,start,end,false);
-  const hole=new THREE.Path(); hole.absarc(0,0,innerR,end,start,true); sh.holes.push(hole);
-  const geo=new THREE.ExtrudeGeometry(sh,{depth:height,bevelEnabled:false,curveSegments:64});
-  geo.rotateX(Math.PI/2); geo.translate(0,0,-height/2);
-  const mat=new THREE.MeshStandardMaterial({color,metalness:0.08,roughness:0.45});
-  const m=new THREE.Mesh(geo,mat); m.userData.center=(start+end)/2; return m;
-}
+  function wedge(i,total,outerR,innerR,height,gapDeg,color){
+    const sector=(Math.PI*2)/total, gap=THREE.Math.degToRad(gapDeg);
+    const start=i*sector+gap/2, end=(i+1)*sector-gap/2;
+    const sh=new THREE.Shape(); sh.absarc(0,0,outerR,start,end,false);
+    const hole=new THREE.Path(); hole.absarc(0,0,innerR,end,start,true); sh.holes.push(hole);
+    const geo=new THREE.ExtrudeGeometry(sh,{depth:height,bevelEnabled:false,curveSegments:64});
+    geo.rotateX(Math.PI/2); geo.translate(0,0,-height/2);
+    const mat=new THREE.MeshStandardMaterial({color, metalness:0.08, roughness:0.45});
+    const m=new THREE.Mesh(geo,mat); m.userData.center=(start+end)/2; return m;
+  }
 
-function addLabels(i,outerR,innerR,a){
-  const arr=[]; const tex=labelTexture(months[i]); const aspect=tex.image.width/tex.image.height; const s=P.labelSize;
-  if(P.outerLbl){const g=new THREE.PlaneGeometry(s*aspect,s);const m=new THREE.MeshBasicMaterial({map:tex,transparent:true});
-    const mesh=new THREE.Mesh(g,m); mesh.position.set(Math.cos(a)*(outerR+0.02),0,Math.sin(a)*(outerR+0.02)); mesh.rotation.y=-a+Math.PI/2; arr.push(mesh);}
-  if(P.innerLbl){const g=new THREE.PlaneGeometry(s*aspect,s);const m=new THREE.MeshBasicMaterial({map:tex,transparent:true});
-    const mesh=new THREE.Mesh(g,m); mesh.position.set(Math.cos(a)*(innerR-0.02),0,Math.sin(a)*(innerR-0.02)); mesh.rotation.y=-a-Math.PI/2; arr.push(mesh);}
-  return arr;
-}
+  function addLabels(i,outerR,innerR,a){
+    const arr=[], tex=labelTexture(months[i]), aspect=tex.image.width/tex.image.height, s=P.labelSize;
+    if(P.outerLbl){ const g=new THREE.PlaneGeometry(s*aspect,s), m=new THREE.MeshBasicMaterial({map:tex,transparent:true});
+      const mesh=new THREE.Mesh(g,m); mesh.position.set(Math.cos(a)*(outerR+0.02),0,Math.sin(a)*(outerR+0.02)); mesh.rotation.y=-a+Math.PI/2; arr.push(mesh); }
+    if(P.innerLbl){ const g=new THREE.PlaneGeometry(s*aspect,s), m=new THREE.MeshBasicMaterial({map:tex,transparent:true});
+      const mesh=new THREE.Mesh(g,m); mesh.position.set(Math.cos(a)*(innerR-0.02),0,Math.sin(a)*(innerR-0.02)); mesh.rotation.y=-a-Math.PI/2; arr.push(mesh); }
+    return arr;
+  }
 
-function rebuild(){
-  [ringGroup,labelGroup].forEach(g=>{while(g.children.length){const m=g.children.pop();m.geometry?.dispose();m.material?.dispose()}});
-  for(let i=0;i<12;i++){const w=wedge(i,12,P.outerR,P.innerR,P.height,P.gapDeg,colors[i%colors.length]); ringGroup.add(w); addLabels(i,P.outerR,P.innerR,w.userData.center).forEach(n=>labelGroup.add(n));}
-}
-rebuild();
+  function rebuild(){
+    [ringGroup,labelGroup].forEach(g=>{
+      while(g.children.length){
+        const m=g.children.pop();
+        if(m.geometry) m.geometry.dispose();
+        const mats=Array.isArray(m.material)?m.material:[m.material];
+        mats.forEach(mm=>{ if(mm?.map) mm.map.dispose(); mm?.dispose?.(); });
+      }
+    });
+    P.innerR = Math.min(P.innerR, P.outerR - 0.4);
+    for(let i=0;i<12;i++){
+      const w=wedge(i,12,P.outerR,P.innerR,P.height,P.gapDeg,colors[i%colors.length]);
+      ringGroup.add(w);
+      addLabels(i,P.outerR,P.innerR,w.userData.center).forEach(n=>labelGroup.add(n));
+    }
+  }
 
-function resize(){
-  const w=stage.clientWidth,h=stage.clientHeight;
-  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
-}
-window.addEventListener('resize',resize); resize();
+  function resize(){
+    const w=stage.clientWidth, h=stage.clientHeight;
+    renderer.setSize(w,h,false);
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
 
-(function animate(){
-  requestAnimationFrame(animate);
-  if(P.auto) ringGroup.rotation.y+=0.01;
-  controls.update();
-  renderer.render(scene,camera);
+  // Hover highlight + camera nudge on click
+  const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(); let hi=null;
+  canvas.addEventListener('mousemove', e=>{
+    const r=canvas.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(ringGroup.children,false);
+    if(hi && (!hits[0] || hits[0].object!==hi)) hi.material.emissive=new THREE.Color(0x000000);
+    if(hits[0]){ hi=hits[0].object; if(hi.material.emissive!==undefined) hi.material.emissive=new THREE.Color(0x222222); }
+  });
+  canvas.addEventListener('click', ()=>{
+    if(!hi) return;
+    const a=hi.userData.center, r=(P.outerR+P.innerR)/2+6;
+    camera.position.lerp(new THREE.Vector3(Math.cos(a)*r,camera.position.y,Math.sin(a)*r),0.35);
+  });
+
+  // Controls
+  const $=id=>document.getElementById(id);
+  $('outerR').oninput=e=>{P.outerR=+e.target.value; rebuild()};
+  $('innerR').oninput=e=>{P.innerR=+e.target.value; rebuild()};
+  $('height').oninput=e=>{P.height=+e.target.value; rebuild()};
+  $('gap').oninput   =e=>{P.gapDeg=+e.target.value; rebuild()};
+  $('labelSize').oninput=e=>{P.labelSize=+e.target.value; rebuild()};
+  $('outerLbl').onchange=e=>{P.outerLbl=e.target.checked; rebuild()};
+  $('innerLbl').onchange=e=>{P.innerLbl=e.target.checked; rebuild()};
+  $('reset').onclick=()=>{controls.reset(); camera.position.set(0,7.5,13)};
+  $('spin').onclick =e=>{P.auto=!P.auto; e.target.textContent=P.auto?'Stop':'Auto-rotate'};
+
+  // Kick off
+  rebuild();
+  resize();
+  (function loop(){ requestAnimationFrame(loop); if(P.auto) ringGroup.rotation.y+=0.01; controls.update(); renderer.render(scene,camera); })();
 })();
 </script>
 </body>
