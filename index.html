@@ -5,374 +5,169 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>3D Year Ring – Synesthetic Calendar</title>
 <style>
-  :root{
-    --bg:#0e1116; --panel:#111827; --border:#1f2937; --fg:#e5e7eb;
-    --accent:#4c8bf5; --ringline:#00000022;
-  }
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);
-            font:15px/1.35 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
-  #app{height:100%;display:grid;grid-template-columns:280px 1fr}
-  /* Control panel */
+  :root{ --bg:#0e1116; --panel:#111827; --border:#1f2937; --fg:#e5e7eb; --accent:#4c8bf5; }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:15px/1.35 ui-sans-serif,system-ui}
+  /* FIX: give the layout a real height */
+  #app{height:100vh; display:grid; grid-template-columns:280px 1fr}
+
   aside{padding:14px;border-right:1px solid var(--border);background:var(--panel)}
   aside h1{margin:0 0 10px;font:600 16px/1.2 ui-sans-serif}
   .row{display:grid;grid-template-columns:1fr 4.5rem;gap:.5rem;margin:10px 0}
-  .row input[type=range]{width:100%}
-  .hint{opacity:.7;font-size:.85rem;margin-top:.5rem}
-  .btn{display:inline-flex;align-items:center;gap:.45rem;
-       border:1px solid var(--border);background:#0b1220;padding:.5rem .7rem;border-radius:10px;color:var(--fg)}
-  .btn:hover{border-color:#2c3a52}
   fieldset{border:1px solid var(--border);border-radius:10px;padding:10px;margin:12px 0}
   legend{opacity:.8}
-  .small{font-size:.9rem; opacity:.8}
+  .btn{border:1px solid var(--border);background:#0b1220;padding:.5rem .7rem;border-radius:10px;color:var(--fg)}
+
   /* Canvas area */
-  #stage{position:relative}
-  #canvas{display:block;width:100%;height:100%}
-  .overlay{position:absolute;top:10px;left:10px;background:#00000060;padding:6px 10px;border-radius:10px;backdrop-filter: blur(4px)}
-  a{color:var(--accent);text-decoration:none}
+  #stage{
+    position:relative;
+    /* FIX: ensure the canvas column is tall */
+    height:100vh;           /* or min-height:100%; */
+    overflow:hidden;
+  }
+  #canvas{display:block;width:100%;height:100%} /* canvas stretches to the stage */
+  .overlay{position:absolute;top:10px;left:10px;background:#0008;padding:6px 10px;border-radius:10px}
 </style>
 </head>
 <body>
 <div id="app">
   <aside>
     <h1>3D Year Ring</h1>
-    <div class="small">Pan/rotate with mouse/touch · Scroll/Pinch to zoom</div>
-
     <fieldset>
       <legend>Dimensions</legend>
-      <div class="row">
-        <label>Outer Radius <span id="outerRadiusVal" class="small"></span></label>
-        <input id="outerRadius" type="range" min="2" max="9" step="0.1" value="6.5">
-      </div>
-      <div class="row">
-        <label>Inner Radius <span id="innerRadiusVal" class="small"></span></label>
-        <input id="innerRadius" type="range" min="1" max="8" step="0.1" value="4.4">
-      </div>
-      <div class="row">
-        <label>Height (thickness) <span id="heightVal" class="small"></span></label>
-        <input id="height" type="range" min="0.3" max="2.0" step="0.05" value="0.9">
-      </div>
-      <div class="row">
-        <label>Gap (degrees) <span id="gapVal" class="small"></span></label>
-        <input id="gap" type="range" min="0" max="4" step="0.1" value="0.8">
-      </div>
+      <div class="row"><label>Outer Radius</label><input id="outerRadius" type="range" min="2" max="9" step="0.1" value="6.5"></div>
+      <div class="row"><label>Inner Radius</label><input id="innerRadius" type="range" min="1" max="8" step="0.1" value="4.4"></div>
+      <div class="row"><label>Height</label><input id="height" type="range" min="0.3" max="2.0" step="0.05" value="0.9"></div>
+      <div class="row"><label>Gap (deg)</label><input id="gap" type="range" min="0" max="4" step="0.1" value="0.8"></div>
+      <div class="row"><label>Label Size</label><input id="labelSize" type="range" min="0.1" max="0.6" step="0.02" value="0.34"></div>
+      <label><input id="showOuter" type="checkbox" checked> Show Outside Labels</label><br>
+      <label><input id="showInner" type="checkbox" checked> Show Inside Labels</label>
     </fieldset>
-
-    <fieldset>
-      <legend>Labels</legend>
-      <div style="display:flex; gap:.6rem; align-items:center; margin:.35rem 0;">
-        <input id="showOuter" type="checkbox" checked><label for="showOuter">Show Outside</label>
-      </div>
-      <div style="display:flex; gap:.6rem; align-items:center; margin:.35rem 0;">
-        <input id="showInner" type="checkbox" checked><label for="showInner">Show Inside</label>
-      </div>
-      <div class="row">
-        <label>Label Size <span id="labelVal" class="small"></span></label>
-        <input id="labelSize" type="range" min="0.1" max="0.6" step="0.02" value="0.34">
-      </div>
-    </fieldset>
-
-    <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
-      <button id="resetView" class="btn">Reset View</button>
-      <button id="autorotate" class="btn">Auto-rotate</button>
-    </div>
-
-    <p class="hint">Tip: Use the sliders to match the “short, wide tube” look.  
-      Try Outer ≈ 6.5, Inner ≈ 4.4, Height ≈ 0.9, Gap ≈ 0.8°.</p>
-
-    <p class="small">Ready to host? Save as <code>index.html</code> in a GitHub repo → Settings → Pages → Deploy from branch.</p>
+    <button id="resetView" class="btn">Reset View</button>
+    <button id="autorotate" class="btn">Auto-rotate</button>
   </aside>
 
   <div id="stage">
-    <canvas id="canvas" aria-label="3D torus-like calendar ring"></canvas>
-    <div class="overlay small">Months: click a segment to highlight</div>
+    <canvas id="canvas"></canvas>
+    <div class="overlay">Drag to rotate · Scroll/Pinch to zoom</div>
   </div>
 </div>
 
-<!-- Three.js modules from a CDN -->
 <script type="module">
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.159.0/examples/jsm/controls/OrbitControls.js';
 
-const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const colors=['#57A7B4','#6BB8A0','#86C37A','#A0C15A','#E0B444','#F0A63E','#E9853F','#DB6A4B','#CF5C59','#E18A42','#F0B149','#7CB4A9'];
 
-// Palette roughly inspired by your mock
-const colors = [
-  '#57A7B4','#6BB8A0','#86C37A','#A0C15A','#E0B444','#F0A63E',
-  '#E9853F','#DB6A4B','#CF5C59','#E18A42','#F0B149','#7CB4A9'
-];
+const canvas=document.getElementById('canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+renderer.setClearColor(0x0e1116,1);
 
-// ---------- Renderer / Scene / Camera ----------
-const canvas = document.getElementById('canvas');
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
-renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-renderer.setClearColor(0x0e1116, 1);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,1,0.1,200);
+camera.position.set(0,7.5,13);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
 
-const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x0e1116, 30, 60);
+scene.add(new THREE.HemisphereLight(0xffffff,0x223344,0.7));
+const dl=new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(6,8,4); scene.add(dl);
 
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
-camera.position.set(0, 7.5, 13);
+const params={outerR:6.5, innerR:4.4, height:0.9, gapDeg:0.8, labelSize:0.34, showOuter:true, showInner:true, auto:false};
+const ringGroup=new THREE.Group(); scene.add(ringGroup);
+const labelGroup=new THREE.Group(); scene.add(labelGroup);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.minDistance = 6;
-controls.maxDistance = 60;
-controls.rotateSpeed = 0.75;
-controls.zoomSpeed   = 0.8;
-controls.panSpeed    = 0.6;
-
-// Lights
-{
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 0.6);
-  scene.add(hemi);
-
-  const key = new THREE.DirectionalLight(0xffffff, 0.8);
-  key.position.set(6, 8, 4);
-  key.castShadow = false;
-  scene.add(key);
-
-  const rim = new THREE.DirectionalLight(0x88aaff, 0.25);
-  rim.position.set(-6, 4, -6);
-  scene.add(rim);
+function makeLabelTexture(text) {
+  const c=document.createElement('canvas'), ctx=c.getContext('2d');
+  const pad=16, font=128; ctx.font=`700 ${font}px system-ui,-apple-system,Segoe UI,Roboto`;
+  const w=(ctx.measureText(text).width|0)+pad*2, h=font+pad*2; c.width=w; c.height=h;
+  ctx.font=`700 ${font}px system-ui,-apple-system,Segoe UI,Roboto`;
+  ctx.fillStyle='#0d1117'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,w/2,h/2);
+  const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearMipmapLinearFilter; tex.generateMipmaps=true; return tex;
 }
 
-// Ground (soft)
-{
-  const g = new THREE.PlaneGeometry(200, 200);
-  const m = new THREE.MeshBasicMaterial({color:0x0b0f14, transparent:true, opacity:0.6});
-  const ground = new THREE.Mesh(g, m);
-  ground.rotation.x = -Math.PI/2;
-  ground.position.y = -1.4;
-  scene.add(ground);
+function makeWedge(i,total,outerR,innerR,height,gapDeg,color){
+  const sector=(Math.PI*2)/total, gap=THREE.MathUtils.degToRad(gapDeg);
+  const start=i*sector+gap/2, end=(i+1)*sector-gap/2;
+  const sh=new THREE.Shape(); sh.absarc(0,0,outerR,start,end,false);
+  const hole=new THREE.Path(); hole.absarc(0,0,innerR,end,start,true); sh.holes.push(hole);
+  const geo=new THREE.ExtrudeGeometry(sh,{depth:height,bevelEnabled:false,curveSegments:96,steps:1});
+  geo.rotateX(Math.PI/2); geo.translate(0,0,-height/2);
+  const mat=new THREE.MeshStandardMaterial({color:new THREE.Color(color),metalness:0.08,roughness:0.45});
+  const mesh=new THREE.Mesh(geo,mat); mesh.userData.centerAngle=(start+end)/2; mesh.userData.index=i; return mesh;
 }
 
-// ---------- Parameter state ----------
-const params = {
-  outerR: 6.5,
-  innerR: 4.4,
-  height: 0.9,
-  gapDeg: 0.8,
-  labelSize: 0.34,
-  showOuter: true,
-  showInner: true,
-  auto: false,
-};
-
-const ringGroup = new THREE.Group();
-scene.add(ringGroup);
-
-const labelGroup = new THREE.Group();
-scene.add(labelGroup);
-
-// Canvas-text label helper (renders to a texture)
-function makeLabelTexture(text, color='#111', bg='transparent') {
-  const c = document.createElement('canvas');
-  const ctx = c.getContext('2d');
-  const pad = 16;
-  const fontPx = 128;
-  ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
-  const w = Math.ceil(ctx.measureText(text).width) + pad*2;
-  const h = fontPx + pad*2;
-  c.width = w; c.height = h;
-  // redraw after resize:
-  ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
-  if (bg !== 'transparent') {
-    ctx.fillStyle = bg; ctx.fillRect(0,0,w,h);
-  }
-  ctx.fillStyle = color;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'center';
-  ctx.fillText(text, w/2, h/2);
-  const tex = new THREE.CanvasTexture(c);
-  tex.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1;
-  tex.minFilter = THREE.LinearMipmapLinearFilter;
-  tex.generateMipmaps = true;
-  return {texture: tex, w, h};
-}
-
-// Build one ring wedge (an extruded annulus sector)
-function makeWedge(i, total, outerR, innerR, height, gapDeg, color) {
-  const fullAngle = Math.PI * 2;
-  const sector = fullAngle / total;
-
-  const gap = THREE.MathUtils.degToRad(gapDeg);
-  const start = i * sector + gap/2;
-  const end   = (i+1) * sector - gap/2;
-
-  // 2D shape for the sector
-  const shape = new THREE.Shape();
-  shape.absarc(0, 0, outerR, start, end, false);
-  // hole (inner arc - reverse)
-  const hole = new THREE.Path();
-  hole.absarc(0, 0, innerR, end, start, true);
-  shape.holes.push(hole);
-
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: height, bevelEnabled: false, curveSegments: 96, steps: 1
-  });
-  // Center extrusion around y (we'll rotate later)
-  geo.rotateX(Math.PI/2);
-  geo.translate(0, 0, -height/2);
-
-  const mat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(color),
-    metalness: 0.08,
-    roughness: 0.45,
-    envMapIntensity: 0.4
-  });
-
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.userData.centerAngle = (start + end) / 2;
-  mesh.userData.index = i;
-  return mesh;
-}
-
-// Place label planes on inner/outer walls
-function addLabelsForSegment(i, total, outerR, innerR, height, midAngle, color) {
-  const labels = [];
-
-  const cfg = [
-    { kind:'outer', radius: (outerR + innerR)/2 + (outerR - innerR)/2 + 0.01, faceOut: 1, show: params.showOuter },
-    { kind:'inner', radius: (outerR + innerR)/2 - (outerR - innerR)/2 - 0.01, faceOut: -1, show: params.showInner },
+function addLabels(i,outerR,innerR,midAngle){
+  const size=params.labelSize;
+  const planes=[];
+  const cfg=[
+    {show:params.showOuter, radius: outerR+0.02, yaw: Math.PI/2},
+    {show:params.showInner, radius: innerR-0.02, yaw:-Math.PI/2},
   ];
-
-  cfg.forEach(({kind, radius, faceOut, show})=>{
-    if (!show) return;
-    const {texture, w, h} = makeLabelTexture(months[i], '#0d1117');
-    const aspect = w / h;
-    const size = params.labelSize;                 // world units
-    const plane = new THREE.PlaneGeometry(size*aspect, size);
-    const mat = new THREE.MeshBasicMaterial({map:texture, transparent:true});
-    const mesh = new THREE.Mesh(plane, mat);
-
-    // height centered on ring; lift slightly above middle
-    mesh.position.set(
-      Math.cos(midAngle) * radius,
-      0.0,
-      Math.sin(midAngle) * radius
-    );
-
-    // rotate so it faces radially outward (or inward)
-    mesh.rotation.y = -midAngle + (faceOut>0 ? Math.PI/2 : -Math.PI/2);
-    labels.push(mesh);
+  cfg.forEach(({show,radius,yaw})=>{
+    if(!show) return;
+    const tex=makeLabelTexture(months[i]);
+    const aspect=tex.image.width/tex.image.height;
+    const geo=new THREE.PlaneGeometry(size*aspect,size);
+    const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true});
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set(Math.cos(midAngle)*radius,0,Math.sin(midAngle)*radius);
+    m.rotation.y=-midAngle+yaw;
+    planes.push(m);
   });
-
-  return labels;
+  return planes;
 }
 
-// Build or rebuild the whole ring
-function rebuild() {
-  // keep inner radius smaller than outer
-  params.innerR = Math.min(params.innerR, params.outerR - 0.4);
+function rebuild(){
+  // clear groups
+  [ringGroup,labelGroup].forEach(g=>{ while(g.children.length){const m=g.children.pop(); m.geometry?.dispose(); Array.isArray(m.material)?m.material.forEach(mm=>mm.map?.dispose()||mm.dispose()):m.material?.dispose(); }});
+  params.innerR=Math.min(params.innerR, params.outerR-0.4);
 
-  // UI readout
-  document.getElementById('outerRadiusVal').textContent = params.outerR.toFixed(1);
-  document.getElementById('innerRadiusVal').textContent = params.innerR.toFixed(1);
-  document.getElementById('heightVal').textContent      = params.height.toFixed(2);
-  document.getElementById('gapVal').textContent         = params.gapDeg.toFixed(1) + '°';
-  document.getElementById('labelVal').textContent       = params.labelSize.toFixed(2);
-
-  // dispose old
-  for (const g of [ringGroup, labelGroup]) {
-    while (g.children.length) {
-      const m = g.children.pop();
-      if (m.geometry) m.geometry.dispose();
-      if (m.material) {
-        const mats = Array.isArray(m.material) ? m.material : [m.material];
-        mats.forEach(mt => {
-          if (mt.map) mt.map.dispose();
-          mt.dispose();
-        });
-      }
-    }
-  }
-
-  const total = 12;
-  for (let i=0;i<total;i++){
-    const mesh = makeWedge(i, total, params.outerR, params.innerR, params.height, params.gapDeg, colors[i%colors.length]);
-    ringGroup.add(mesh);
-
-    const midAngle = mesh.userData.centerAngle;
-    addLabelsForSegment(i, total, params.outerR, params.innerR, params.height, midAngle, colors[i]).forEach(n=>labelGroup.add(n));
+  for(let i=0;i<12;i++){
+    const wedge=makeWedge(i,12,params.outerR,params.innerR,params.height,params.gapDeg,colors[i%colors.length]);
+    ringGroup.add(wedge);
+    const a=wedge.userData.centerAngle;
+    addLabels(i,params.outerR,params.innerR,a).forEach(n=>labelGroup.add(n));
   }
 }
 rebuild();
 
-// ---------- Interaction: pick segment ----------
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-let highlight;
-function setHighlight(mesh) {
-  if (highlight === mesh) return;
-  if (highlight) highlight.material.emissive = new THREE.Color(0x000000);
-  highlight = mesh;
-  if (highlight && highlight.material && highlight.material.emissive !== undefined) {
-    highlight.material.emissive = new THREE.Color(0x222222);
-  }
-}
-canvas.addEventListener('mousemove', (e)=>{
-  const rect = canvas.getBoundingClientRect();
-  mouse.x = ((e.clientX - rect.left)/rect.width) * 2 - 1;
-  mouse.y = -((e.clientY - rect.top)/rect.height) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(ringGroup.children, false);
-  setHighlight(hits[0]?.object || null);
+// highlight + click
+const raycaster=new THREE.Raycaster(); const mouse=new THREE.Vector2(); let hi=null;
+canvas.addEventListener('mousemove',e=>{
+  const r=canvas.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObjects(ringGroup.children,false);
+  if(hi && (!hits[0] || hits[0].object!==hi)) hi.material.emissive = new THREE.Color(0x000000);
+  if(hits[0]){ hi=hits[0].object; hi.material.emissive = new THREE.Color(0x222222); }
 });
+canvas.addEventListener('click',()=>{ if(!hi) return; const a=hi.userData.centerAngle, r=(params.outerR+params.innerR)/2+6;
+  camera.position.lerp(new THREE.Vector3(Math.cos(a)*r,camera.position.y,Math.sin(a)*r),0.35); });
 
-canvas.addEventListener('click', ()=>{
-  if (highlight) {
-    // Snap camera a bit toward the clicked month
-    const a = highlight.userData.centerAngle;
-    const r = (params.outerR + params.innerR)/2 + 6;
-    const target = new THREE.Vector3(Math.cos(a)*r, camera.position.y, Math.sin(a)*r);
-    camera.position.lerp(target, 0.35);
-    controls.update();
-  }
-});
-
-// ---------- Resize / Render loop ----------
 function onResize(){
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-  if (canvas.width !== w || canvas.height !== h){
-    renderer.setSize(w, h, false);
-    camera.aspect = w/h; camera.updateProjectionMatrix();
-  }
+  const w = canvas.clientWidth || canvas.getBoundingClientRect().width;
+  const h = canvas.clientHeight || canvas.getBoundingClientRect().height;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
 }
-window.addEventListener('resize', onResize);
-onResize();
+window.addEventListener('resize', onResize); onResize();
 
-(function loop(){
-  requestAnimationFrame(loop);
-  if (params.auto) ringGroup.rotation.y += 0.0022;
-  controls.update();
-  renderer.render(scene, camera);
-})();
+(function render(){ requestAnimationFrame(render);
+  controls.update(); renderer.render(scene,camera); })();
 
-// ---------- UI wiring ----------
-const $ = id => document.getElementById(id);
-$('outerRadius').addEventListener('input', e=>{ params.outerR = +e.target.value; rebuild(); });
-$('innerRadius').addEventListener('input', e=>{ params.innerR = +e.target.value; rebuild(); });
-$('height').addEventListener('input',      e=>{ params.height = +e.target.value; rebuild(); });
-$('gap').addEventListener('input',         e=>{ params.gapDeg = +e.target.value; rebuild(); });
-$('labelSize').addEventListener('input',   e=>{ params.labelSize = +e.target.value; rebuild(); });
-$('showOuter').addEventListener('change',  e=>{ params.showOuter = e.target.checked; rebuild(); });
-$('showInner').addEventListener('change',  e=>{ params.showInner = e.target.checked; rebuild(); });
-
-$('resetView').addEventListener('click', ()=>{
-  controls.reset();
-  camera.position.set(0, 7.5, 13);
-});
-$('autorotate').addEventListener('click', ()=>{
-  params.auto = !params.auto;
-  $('autorotate').textContent = params.auto ? 'Stop auto-rotate' : 'Auto-rotate';
-});
-
-// Initial values into labels
-['outerRadius','innerRadius','height','gap','labelSize'].forEach(id=>{
-  document.getElementById(id).dispatchEvent(new Event('input'));
-});
+// UI
+const $=id=>document.getElementById(id);
+$('outerRadius').oninput=e=>{params.outerR=+e.target.value; rebuild();};
+$('innerRadius').oninput=e=>{params.innerR=+e.target.value; rebuild();};
+$('height').oninput=e=>{params.height=+e.target.value; rebuild();};
+$('gap').oninput=e=>{params.gapDeg=+e.target.value; rebuild();};
+$('labelSize').oninput=e=>{params.labelSize=+e.target.value; rebuild();};
+$('showOuter').onchange=e=>{params.showOuter=e.target.checked; rebuild();};
+$('showInner').onchange=e=>{params.showInner=e.target.checked; rebuild();};
+$('resetView').onclick=()=>{controls.reset(); camera.position.set(0,7.5,13);};
+$('autorotate').onclick=e=>{ params.auto=!params.auto; e.target.textContent=params.auto?'Stop auto-rotate':'Auto-rotate';
+  (function spin(){ if(!params.auto) return; ringGroup.rotation.y += 0.01; requestAnimationFrame(spin); })(); };
 </script>
 </body>
 </html>
